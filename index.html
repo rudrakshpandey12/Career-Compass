@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+  // Set theme before first paint to avoid a light-mode flash for returning dark-mode users.
+  try {
+    var t = localStorage.getItem("cc-theme");
+    if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
+  } catch (e) {}
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Career Compass — Find Your Direction</title>
+<meta name="description" content="A free career assessment that matches you to the right domain and course.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Light (default) — "travel document" palette: cool paper, ink navy, sky-blue accent, marigold stamp */
+    --paper:#EEF1F5;
+    --paper-raised:#FFFFFF;
+    --paper-alt:#E4E9F1;
+    --ink:#13203B;
+    --ink-soft:#5B6478;
+    --line:#D7DEE8;
+    --accent:#2F6FED;
+    --accent-soft:#2F6FED17;
+    --stamp:#D98C1F;
+    --stamp-soft:#D98C1F1F;
+    --danger:#C6402F;
+    --danger-soft:#C6402F14;
+    --radius:14px;
+    --shadow: 0 1px 2px rgba(19,32,59,0.05), 0 10px 28px -16px rgba(19,32,59,0.20);
+  }
+  [data-theme="dark"]{
+    --paper:#0F131C;
+    --paper-raised:#171C29;
+    --paper-alt:#1E2433;
+    --ink:#EDEFF5;
+    --ink-soft:#96A0B5;
+    --line:#2A3245;
+    --accent:#6C9BFF;
+    --accent-soft:#6C9BFF22;
+    --stamp:#EFB24C;
+    --stamp-soft:#EFB24C26;
+    --danger:#FF8A78;
+    --danger-soft:#FF8A7820;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 14px 32px -18px rgba(0,0,0,0.6);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    -webkit-font-smoothing:antialiased;
+    transition:background 0.25s ease, color 0.25s ease;
+  }
+  .app{ width:100%; max-width:560px; min-height:100vh; display:flex; flex-direction:column; position:relative; }
+
+  /* faint dot-matrix ground texture, like ticket stock — restrained, not a glow */
+  .bg-lines{
+    position:fixed; inset:0; z-index:0; pointer-events:none; opacity:0.5;
+    background-image: radial-gradient(var(--line) 1px, transparent 1px);
+    background-size:22px 22px;
+    mask-image:radial-gradient(circle at 50% 0%, black, transparent 72%);
+  }
+
+  h1,h2,h3{font-family:'Space Grotesk', sans-serif; font-weight:700; letter-spacing:-0.01em; color:var(--ink);}
+  .screen{ flex:1; display:none; flex-direction:column; padding:20px 24px 48px; position:relative; z-index:1; animation:fadeIn 0.4s ease; }
+  .screen.active{display:flex;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  /* ---------- TOPBAR ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:20; width:100%;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 24px; background:var(--paper); border-bottom:1px solid var(--line);
+  }
+  .topbar-brand{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--ink-soft);
+  }
+  .theme-toggle{
+    display:flex; align-items:center; justify-content:center; width:34px; height:34px;
+    border-radius:999px; border:1px solid var(--line); background:var(--paper-raised);
+    cursor:pointer; color:var(--ink); transition:border-color 0.15s ease;
+  }
+  .theme-toggle:hover{border-color:var(--accent);}
+  .theme-toggle svg{width:16px; height:16px;}
+  .theme-toggle .icon-moon{display:none;}
+  [data-theme="dark"] .theme-toggle .icon-sun{display:none;}
+  [data-theme="dark"] .theme-toggle .icon-moon{display:block;}
+
+  .eyebrow{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--accent); font-weight:600; }
+  .sub{color:var(--ink-soft); font-size:15.5px; line-height:1.6;}
+
+  .btn{
+    font-family:'IBM Plex Sans', sans-serif; font-weight:600; font-size:15px;
+    border:none; border-radius:999px; padding:16px 34px; cursor:pointer;
+    background:var(--accent); color:#FFFFFF;
+    transition:transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+    box-shadow:0 10px 22px -10px var(--accent-soft);
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn.ghost{ background:transparent; color:var(--ink); border:1px solid var(--line); box-shadow:none; }
+  .btn.full{width:100%;}
+  .btn:disabled{opacity:0.45; cursor:not-allowed;}
+  .btn:focus-visible{outline:2px solid var(--accent); outline-offset:3px;}
+
+  /* ---------- TICKET (signature component) ---------- */
+  .ticket{
+    display:flex; background:var(--paper-raised); border:1px solid var(--line);
+    border-radius:var(--radius); box-shadow:var(--shadow); overflow:visible; position:relative;
+    margin:8px 0 22px;
+  }
+  .ticket-main{ flex:1; padding:24px 22px; min-width:0; }
+  .ticket-stub{
+    width:96px; flex-shrink:0; background:var(--paper-alt);
+    border-left:1.5px dashed var(--line);
+    display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+    padding:16px 0; position:relative; border-radius:0 var(--radius) var(--radius) 0;
+  }
+  .ticket-stub::before, .ticket-stub::after{
+    content:""; position:absolute; left:-8px; width:16px; height:16px; border-radius:50%;
+    background:var(--paper); border:1px solid var(--line);
+  }
+  .ticket-stub::before{ top:-8px; }
+  .ticket-stub::after{ bottom:-8px; }
+  .ticket-spine{
+    writing-mode:vertical-rl; text-orientation:mixed; transform:rotate(180deg);
+    font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.16em;
+    color:var(--ink-soft); text-transform:uppercase; white-space:nowrap;
+  }
+  .ticket-barcode{
+    width:20px; height:56px;
+    background:repeating-linear-gradient(90deg, var(--ink) 0px, var(--ink) 2px, transparent 2px, transparent 4px);
+    opacity:0.55;
+  }
+  .ticket-plane{ font-size:15px; color:var(--stamp); }
+  .ticket-label{
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--ink-soft); display:block; margin-bottom:5px;
+  }
+
+  #hero .ticket-main .eyebrow{display:none;} /* brand already shown in topbar; avoid repeating it here */
+  #hero .ticket-main h1{font-size:32px; line-height:1.12; margin-top:2px;}
+  #hero .ticket-main h1 span{color:var(--accent);}
+  #hero .ticket-main .sub{margin-top:10px; margin-bottom:18px;}
+  #hero .compass-wrap{width:150px; height:150px; margin:6px auto 0;}
+
+  .meta-row{display:flex; gap:18px; margin:14px 0 4px; font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--ink-soft);}
+  .meta-row b{color:var(--ink); font-weight:600;}
+  .domain-chip-row{display:flex; flex-wrap:wrap; gap:6px; margin:14px 0 20px;}
+  .domain-chip{
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--ink-soft);
+    border:1px solid var(--line); border-radius:999px; padding:5px 10px; background:var(--paper);
+  }
+  .domain-chip.featured{color:var(--stamp); border-color:var(--stamp);}
+
+  .rose-ring{fill:none; stroke:var(--line); stroke-width:1;}
+  .rose-ring.progress{stroke:var(--accent); stroke-linecap:round; transition:stroke-dashoffset 0.5s ease;}
+  .rose-axis{stroke:var(--line); stroke-width:1;}
+  .rose-hex{fill:var(--accent-soft); stroke:var(--accent); stroke-width:2;}
+  .rose-dot{fill:var(--accent);}
+  .rose-label{font-family:'IBM Plex Mono', monospace; font-size:12px; fill:var(--ink-soft); text-anchor:middle;}
+  .rose-label.top{fill:var(--stamp); font-weight:700;}
+  .rose-center{fill:var(--paper-alt); stroke:var(--line); stroke-width:1;}
+  .rose-center-txt{font-family:'IBM Plex Mono', monospace; font-size:18px; fill:var(--ink); text-anchor:middle; font-weight:600;}
+
+  /* ---------- QUIZ ---------- */
+  #quiz{gap:0; padding-top:8px;}
+  .quiz-top{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:12px;}
+  .q-count{font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--ink-soft); letter-spacing:0.04em;}
+  .q-count:last-child{max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; flex-shrink:0;}
+  .section-tag{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--accent); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:6px; font-weight:600; }
+  .progress-track{height:4px; background:var(--paper-alt); border-radius:2px; margin:14px 0 28px; overflow:hidden;}
+  .progress-fill{height:100%; background:var(--accent); border-radius:2px; transition:width 0.4s ease;}
+  .q-text{font-size:21px; line-height:1.35; font-family:'Space Grotesk', sans-serif; font-weight:600; margin-bottom:24px; min-height:84px; color:var(--ink);}
+  .options{display:flex; flex-direction:column; gap:9px;}
+
+  .likert-btn{
+    text-align:left; padding:14px 16px; border-radius:12px; width:100%;
+    background:var(--paper-raised); border:1px solid var(--line); color:var(--ink);
+    font-size:14.5px; cursor:pointer; display:flex; align-items:center; gap:13px;
+    transition:border-color 0.15s ease, background 0.15s ease;
+  }
+  .likert-btn .n{
+    font-family:'IBM Plex Mono', monospace; width:22px; height:22px; border-radius:50%;
+    border:1px solid var(--line); display:flex; align-items:center; justify-content:center;
+    font-size:11.5px; color:var(--ink-soft); flex-shrink:0;
+  }
+  .likert-btn:hover{border-color:var(--accent);}
+  .likert-btn.selected{border-color:var(--accent); background:var(--accent-soft);}
+  .likert-btn.selected .n{border-color:var(--accent); color:var(--accent); background:var(--paper-raised);}
+
+  .scenario-btn{
+    text-align:left; padding:15px 16px; border-radius:12px; width:100%;
+    background:var(--paper-raised); border:1px solid var(--line); color:var(--ink);
+    font-size:14.5px; line-height:1.4; cursor:pointer; display:flex; gap:13px; align-items:flex-start;
+    transition:border-color 0.15s ease, background 0.15s ease;
+  }
+  .scenario-btn .letter{ font-family:'IBM Plex Mono', monospace; color:var(--accent); font-weight:700; flex-shrink:0; }
+  .scenario-btn:hover{border-color:var(--accent);}
+  .scenario-btn.selected{border-color:var(--accent); background:var(--accent-soft);}
+
+  .quiz-nav{display:flex; justify-content:space-between; align-items:center; margin-top:30px;}
+  .link-btn{ background:none; border:none; color:var(--ink-soft); font-family:'IBM Plex Sans'; font-size:14px; cursor:pointer; padding:10px 6px; }
+  .link-btn:hover{color:var(--ink);}
+  .btn.next{padding:13px 28px; font-size:14px;}
+
+  /* ---------- LEAD CAPTURE ---------- */
+  #leadgate{justify-content:center; gap:6px; padding-top:40px;}
+  #leadgate .eyebrow{margin-bottom:8px;}
+  #leadgate h2{font-size:25px; line-height:1.25; margin-bottom:8px;}
+  #leadgate .sub{margin-bottom:24px;}
+  .field{display:flex; flex-direction:column; gap:6px; margin-bottom:15px;}
+  .field label{font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.08em;}
+  .field input{
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:10px;
+    padding:13px 15px; color:var(--ink); font-size:15px; font-family:'IBM Plex Sans';
+  }
+  .field input:focus{outline:none; border-color:var(--accent);}
+  .field.error input{border-color:var(--danger);}
+  .field .err-msg{color:var(--danger); font-size:12px; display:none;}
+  .field.error .err-msg{display:block;}
+  .privacy-note{color:var(--ink-soft); font-size:11.5px; line-height:1.6; margin-top:6px; text-align:center;}
+  #leadError{color:var(--danger); font-size:13px; text-align:center; margin-top:10px; display:none;}
+
+  /* ---------- RESULTS ---------- */
+  #results{padding-top:8px; gap:0;}
+  #results .ticket{margin-bottom:20px;}
+  #results .ticket-main{padding:22px 20px;}
+  .name-line{color:var(--ink-soft); font-size:13px; margin-top:4px;}
+  #resultHeadline{font-size:24px; line-height:1.25;}
+  .compass-result{display:flex; justify-content:center; margin:6px 0 4px;}
+  .trait-bars{display:flex; flex-direction:column; gap:9px; margin:20px 0 4px;}
+  .trait-row{display:flex; align-items:center; gap:12px;}
+  .trait-key{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--ink-soft); width:96px; flex-shrink:0; }
+  .trait-track{flex:1; height:6px; background:var(--paper-alt); border-radius:4px; overflow:hidden;}
+  .trait-fill{height:100%; background:var(--accent); border-radius:4px; transition:width 0.8s ease;}
+  .trait-pct{font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--ink); width:34px; text-align:right;}
+
+  .divider{height:1px; background:var(--line); margin:28px 0 20px;}
+  .section-label{font-family:'IBM Plex Mono', monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.12em; color:var(--accent); margin-bottom:14px; font-weight:600;}
+
+  .domain-card{
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:var(--radius);
+    padding:17px 19px; margin-bottom:12px; position:relative;
+  }
+  .domain-card.rank1{border-color:var(--stamp);}
+  .domain-top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;}
+  .domain-name{font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:17px; color:var(--ink);}
+  .domain-match{font-family:'IBM Plex Mono', monospace; color:var(--accent); font-size:13.5px; font-weight:600;}
+  .domain-careers{color:var(--ink-soft); font-size:12.5px; margin-bottom:10px; line-height:1.5;}
+  .rank-badge{
+    position:absolute; top:-9px; left:16px; background:var(--stamp); color:#231605;
+    font-family:'IBM Plex Mono', monospace; font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px;
+  }
+  .mini-cta{
+    display:inline-block; font-size:13px; font-weight:600; color:var(--accent);
+    text-decoration:none; border-bottom:1px solid var(--accent); padding-bottom:1px;
+  }
+
+  .career-card{ background:var(--paper-alt); border:1px solid var(--line); border-radius:12px; padding:13px 15px; margin-bottom:10px; }
+  .career-top-row{display:flex; justify-content:space-between; align-items:baseline;}
+  .career-name{font-size:14px; font-weight:600; color:var(--ink);}
+  .career-match{font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--accent); font-weight:600;}
+  .career-domain-tag{font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--ink-soft); margin-top:3px;}
+
+  /* Featured programs — pinned promo, always shown */
+  .featured-block{ background:var(--paper-raised); border:1.5px solid var(--stamp); border-radius:18px; padding:22px 20px; margin:8px 0 6px; }
+  .featured-block .section-label{color:var(--stamp); margin-bottom:6px;}
+  .featured-block .fb-title{font-size:18px; margin-bottom:4px; font-family:'Space Grotesk', sans-serif; font-weight:600;}
+  .featured-block .fb-sub{color:var(--ink-soft); font-size:13px; margin-bottom:16px; line-height:1.5;}
+  .program-row{ display:flex; gap:12px; margin-bottom:12px; }
+  .program-card{
+    flex:1; background:var(--paper-alt); border:1px solid var(--line); border-radius:12px; padding:14px;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .program-card .p-icon{font-size:19px;}
+  .program-card .p-name{font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:14.5px; color:var(--ink);}
+  .program-card .p-desc{color:var(--ink-soft); font-size:11.5px; line-height:1.4; flex:1;}
+  .program-card .p-badge{
+    display:inline-block; font-family:'IBM Plex Mono', monospace; font-size:9.5px; color:var(--stamp);
+    border:1px solid var(--stamp); border-radius:999px; padding:2px 7px; width:fit-content;
+  }
+  .program-card a.p-link{
+    text-align:center; background:var(--stamp); color:#231605; font-weight:700; font-size:12.5px;
+    border-radius:999px; padding:9px; text-decoration:none; margin-top:2px;
+  }
+
+  .contact-cta{ text-align:center; margin:24px 0 6px; padding:20px; border:1px dashed var(--line); border-radius:14px; }
+  .contact-cta .sub{margin-bottom:14px; font-size:14px;}
+  .contact-cta-row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap;}
+  .contact-cta-row a{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--accent);
+    text-decoration:none; border:1px solid var(--accent); border-radius:999px; padding:8px 16px;
+  }
+
+  .results-actions{display:flex; flex-direction:column; gap:10px; margin-top:24px;}
+  .footnote{color:var(--ink-soft); font-size:11px; line-height:1.6; margin-top:18px; text-align:center;}
+  .save-status{ font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--ink-soft); text-align:center; margin-top:8px; }
+
+  @media (max-width:380px){
+    .program-row{flex-direction:column;}
+    .ticket{flex-direction:column;}
+    .ticket-stub{
+      width:100%; flex-direction:row; border-left:none; border-top:1.5px dashed var(--line);
+      border-radius:0 0 var(--radius) var(--radius); padding:12px 16px;
+    }
+    .ticket-stub::before, .ticket-stub::after{ left:auto; top:-8px; }
+    .ticket-stub::before{ left:-8px; }
+    .ticket-stub::after{ right:-8px; left:auto; }
+    .ticket-spine{writing-mode:horizontal-tb; transform:none;}
+    .ticket-barcode{width:56px; height:20px; background:repeating-linear-gradient(0deg, var(--ink) 0px, var(--ink) 2px, transparent 2px, transparent 4px);}
+  }
+</style>
+</head>
+<body>
+<div class="bg-lines"></div>
+<div class="app">
+  <header class="topbar">
+    <span class="topbar-brand" id="topbarBrand">Career Compass</span>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+    </button>
+  </header>
+
+  <!-- HERO -->
+  <section id="hero" class="screen active">
+    <div class="ticket">
+      <div class="ticket-main">
+        <span class="eyebrow" id="brandEyebrow">Career Compass</span>
+        <h1>Find what<br>actually <span>points you</span> forward.</h1>
+        <p class="sub">30 questions on how you think, work, and decide — matched against 12 real career domains, including our Aviation and Technology programs.</p>
+        <div class="compass-wrap"><svg id="roseSvg" viewBox="0 0 300 300"></svg></div>
+      </div>
+      <div class="ticket-stub">
+        <span class="ticket-plane">✈</span>
+        <span class="ticket-spine">Career Compass</span>
+        <div class="ticket-barcode"></div>
+      </div>
+    </div>
+
+    <div class="meta-row">
+      <span><b>30</b> questions</span>
+      <span><b>~8</b> minutes</span>
+      <span><b>12</b> domains</span>
+    </div>
+    <div class="domain-chip-row" id="domainChipRow"></div>
+    <button class="btn" id="startBtn">Begin Free Assessment</button>
+  </section>
+
+  <!-- QUIZ -->
+
+  <section id="quiz" class="screen">
+    <div class="quiz-top">
+      <span class="q-count" id="qCount">Question 1 / 30</span>
+      <span class="q-count" id="qSection"></span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="section-tag" id="sectionTag"></div>
+    <div class="q-text" id="qText"></div>
+    <div class="options" id="qOptions"></div>
+    <div class="quiz-nav">
+      <button class="link-btn" id="backBtn">← Back</button>
+      <button class="btn next" id="nextBtn" disabled>Next</button>
+    </div>
+  </section>
+
+  <!-- LEAD CAPTURE (gate before results) -->
+  <section id="leadgate" class="screen">
+    <span class="eyebrow">Almost there</span>
+    <h2>Where should we<br>send your results?</h2>
+    <p class="sub">Enter your details to unlock your personalised career report and domain matches.</p>
+
+    <div class="field" id="fieldName">
+      <label for="inputName">Full Name</label>
+      <input type="text" id="inputName" placeholder="e.g. Priya Sharma" autocomplete="name">
+      <span class="err-msg">Please enter your name.</span>
+    </div>
+    <div class="field" id="fieldEmail">
+      <label for="inputEmail">Email Address</label>
+      <input type="email" id="inputEmail" placeholder="e.g. priya@email.com" autocomplete="email">
+      <span class="err-msg">Please enter a valid email address.</span>
+    </div>
+    <div class="field" id="fieldMobile">
+      <label for="inputMobile">Mobile Number</label>
+      <input type="tel" id="inputMobile" placeholder="e.g. 98765 43210" autocomplete="tel">
+      <span class="err-msg">Please enter a valid mobile number.</span>
+    </div>
+
+    <button class="btn full" id="unlockBtn">Unlock My Results</button>
+    <div id="leadError"></div>
+    <p class="privacy-note">We'll only use this to share your report and relevant program details. No spam.</p>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="results" class="screen">
+    <div class="ticket">
+      <div class="ticket-main">
+        <span class="ticket-label">Destination</span>
+        <h2 id="resultHeadline">Your Compass Points To</h2>
+        <span class="ticket-label" style="margin-top:12px;">Passenger</span>
+        <p class="name-line" id="resultNameLine"></p>
+      </div>
+      <div class="ticket-stub">
+        <span class="ticket-plane">✈</span>
+        <span class="ticket-spine">Boarding Pass</span>
+        <div class="ticket-barcode"></div>
+      </div>
+    </div>
+    <div class="compass-result"><svg id="roseSvgResult" viewBox="0 0 300 300" width="220" height="220"></svg></div>
+    <div class="trait-bars" id="traitBars"></div>
+
+    <div class="divider"></div>
+    <div class="section-label">Your Top Matching Domains</div>
+    <div id="domainList"></div>
+
+    <div class="featured-block">
+      <div class="section-label">Featured Programs</div>
+      <div class="fb-title">Where our students see the fastest results</div>
+      <p class="fb-sub">Whatever your top match, these two programs are where we place the most students right now.</p>
+      <div class="program-row" id="featuredPrograms"></div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-label">Top Individual Career Matches</div>
+    <div id="careerList"></div>
+
+    <div class="contact-cta">
+      <p class="sub">Want to talk through your results with a real person?</p>
+      <div class="contact-cta-row" id="contactRow"></div>
+    </div>
+
+    <div class="results-actions">
+      <button class="btn ghost" id="retakeBtn">Retake Assessment</button>
+    </div>
+    <p class="save-status" id="saveStatus"></p>
+    <p class="footnote">This is a career-exploration tool based on your self-reported interests, work style, and values — a starting point for a conversation with our counsellors, not a clinical or psychometric diagnosis.</p>
+  </section>
+
+</div>
+
+<script>
+/* ============================================================
+   CONFIG — edit this block to rebrand / repoint links, nothing
+   else in the file needs to change for basic customization.
+   ============================================================ */
+const CONFIG = {
+  brandName: "Career Compass",
+  // Sheets logging goes through /api/results (a Vercel serverless function) —
+  // the actual Apps Script URL is never sent to the browser. Set it as the
+  // GOOGLE_SCRIPT_URL environment variable in your Vercel project instead
+  // of pasting it here. See README.md.
+  contactEmail: "hello@yourcoaching.com",
+  contactWhatsapp: "https://wa.me/910000000000", // replace with real number, digits only after wa.me/
+  // The two domains being pushed as the business's core paid programs.
+  featuredDomainKeys: ["technology", "aviation"],
+  courses: {
+    technology: {
+      icon: "💻",
+      name: "Tech Career Accelerator",
+      desc: "Software, AI, Data Science, Cyber Security & Cloud — job-ready in months.",
+      url: "https://yourcoaching.com/courses/technology"
+    },
+    aviation: {
+      icon: "✈️",
+      name: "Aviation Career Launchpad",
+      desc: "Cabin Crew, Ground Staff, Pilot & Airport Ops — direct airline pathways.",
+      url: "https://yourcoaching.com/courses/aviation"
+    }
+  },
+  // Just display names for the hero chips — the actual scoring vectors for
+  // these domains live server-side only, in lib/data.js.
+  domainNames: [
+    {key:"technology", name:"Technology"},
+    {key:"business", name:"Business & Management"},
+    {key:"finance", name:"Finance & Commerce"},
+    {key:"healthcare", name:"Healthcare"},
+    {key:"aviation", name:"Aviation"},
+    {key:"hospitality", name:"Hospitality"},
+    {key:"design", name:"Design & Creativity"},
+    {key:"media", name:"Media & Communication"},
+    {key:"law", name:"Law & Public Administration"},
+    {key:"defence", name:"Defence & Uniform Services"},
+    {key:"science", name:"Science & Research"},
+    {key:"education", name:"Education & Human Development"},
+  ]
+};
+
+/* ============================================================
+   QUESTIONS — fetched from /api/questions at runtime. The full
+   bank with trait weights lives server-side only (lib/data.js).
+   ============================================================ */
+const SCALE_LABELS = {
+  agreement: ["Strongly Disagree","Disagree","Neutral","Agree","Strongly Agree"],
+  importance: ["Not important","Slightly important","Moderately important","Very important","Extremely important"],
+};
+
+const TRAIT_NAMES = {R:"Realistic", I:"Investigative", A:"Artistic", S:"Social", E:"Enterprising", C:"Conventional"};
+const TRAIT_ORDER = ["R","I","A","S","E","C"];
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let allQuestions = [];           // populated by fetchQuestions()
+let questionsReady = null;       // promise, resolves once questions are loaded
+let current = 0;
+const answers = {};              // qid -> raw value (1-5) or option letter (scenario)
+let lead = { name:"", email:"", mobile:"" };
+
+/* ============================================================
+   FETCH QUESTIONS (sanitized — no trait weights included)
+   ============================================================ */
+function fetchQuestions(){
+  questionsReady = fetch("/api/questions")
+    .then(r => r.json())
+    .then(data => {
+      allQuestions = data.sections.flatMap(s =>
+        s.questions.map(q => ({...q, sectionId:s.id, sectionTitle:s.title}))
+      );
+    })
+    .catch(err => {
+      document.getElementById("hero").querySelector(".sub").textContent =
+        "Couldn't load the assessment right now — please refresh the page.";
+    });
+  return questionsReady;
+}
+fetchQuestions();
+
+/* ============================================================
+   COMPASS ROSE
+   ============================================================ */
+function angleFor(i){ return -90 + i*60; }
+function pointOnCircle(cx, cy, r, deg){
+  const rad = (deg * Math.PI) / 180;
+  return { x: cx + r*Math.cos(rad), y: cy + r*Math.sin(rad) };
+}
+function buildRoseBase(svg, {withProgress=false}={}){
+  svg.innerHTML = "";
+  const cx=150, cy=150, rOuter=118, rLabel=134;
+  const ns = "http://www.w3.org/2000/svg";
+  [40,75,110].forEach(r=>{
+    const c = document.createElementNS(ns,"circle");
+    c.setAttribute("cx",cx); c.setAttribute("cy",cy); c.setAttribute("r",r);
+    c.setAttribute("class","rose-ring");
+    svg.appendChild(c);
+  });
+  TRAIT_ORDER.forEach((t,i)=>{
+    const deg = angleFor(i);
+    const p = pointOnCircle(cx,cy,rOuter,deg);
+    const line = document.createElementNS(ns,"line");
+    line.setAttribute("x1",cx); line.setAttribute("y1",cy);
+    line.setAttribute("x2",p.x); line.setAttribute("y2",p.y);
+    line.setAttribute("class","rose-axis");
+    svg.appendChild(line);
+    const lp = pointOnCircle(cx,cy,rLabel,deg);
+    const txt = document.createElementNS(ns,"text");
+    txt.setAttribute("x",lp.x); txt.setAttribute("y",lp.y+4);
+    txt.setAttribute("class","rose-label"); txt.setAttribute("data-trait",t);
+    txt.textContent = t;
+    svg.appendChild(txt);
+  });
+  const center = document.createElementNS(ns,"circle");
+  center.setAttribute("cx",cx); center.setAttribute("cy",cy); center.setAttribute("r",34);
+  center.setAttribute("class","rose-center");
+  svg.appendChild(center);
+  if(withProgress){
+    const prog = document.createElementNS(ns,"circle");
+    prog.setAttribute("cx",cx); prog.setAttribute("cy",cy); prog.setAttribute("r",110);
+    prog.setAttribute("class","rose-ring progress");
+    const circumference = 2*Math.PI*110;
+    prog.setAttribute("stroke-dasharray", circumference);
+    prog.setAttribute("stroke-dashoffset", circumference);
+    prog.setAttribute("transform", `rotate(-90 ${cx} ${cy})`);
+    prog.id = "progressRing";
+    svg.appendChild(prog);
+    const ctext = document.createElementNS(ns,"text");
+    ctext.setAttribute("x",cx); ctext.setAttribute("y",cy+7);
+    ctext.setAttribute("class","rose-center-txt"); ctext.id="progressPct";
+    ctext.textContent = "0%";
+    svg.appendChild(ctext);
+  }
+  return {cx,cy,rOuter};
+}
+function updateHeroProgress(pct){
+  const ring = document.getElementById("progressRing");
+  if(!ring) return;
+  const circumference = 2*Math.PI*110;
+  ring.setAttribute("stroke-dashoffset", circumference * (1 - pct));
+  document.getElementById("progressPct").textContent = Math.round(pct*100)+"%";
+}
+function renderResultRose(scores){
+  const svg = document.getElementById("roseSvgResult");
+  const {cx,cy,rOuter} = buildRoseBase(svg, {withProgress:false});
+  const ns = "http://www.w3.org/2000/svg";
+  const pts = TRAIT_ORDER.map((t,i)=>{
+    const deg = angleFor(i);
+    const r = 26 + scores[t]*(rOuter-26);
+    return pointOnCircle(cx,cy,r,deg);
+  });
+  const poly = document.createElementNS(ns,"polygon");
+  poly.setAttribute("points", pts.map(p=>`${p.x},${p.y}`).join(" "));
+  poly.setAttribute("class","rose-hex");
+  svg.appendChild(poly);
+  pts.forEach(p=>{
+    const dot = document.createElementNS(ns,"circle");
+    dot.setAttribute("cx",p.x); dot.setAttribute("cy",p.y); dot.setAttribute("r",3.5);
+    dot.setAttribute("class","rose-dot");
+    svg.appendChild(dot);
+  });
+  const top = TRAIT_ORDER.reduce((a,b)=> scores[b]>scores[a]?b:a, "R");
+  svg.querySelectorAll(".rose-label").forEach(l=>{ if(l.getAttribute("data-trait")===top) l.classList.add("top"); });
+  svg.insertAdjacentHTML("beforeend", `<text x="150" y="155" class="rose-center-txt" style="font-size:16px">${top}</text>`);
+}
+
+/* ============================================================
+   QUIZ RENDERING
+   ============================================================ */
+function renderQuestion(){
+  const q = allQuestions[current];
+  document.getElementById("qCount").textContent = `Question ${current+1} / ${allQuestions.length}`;
+  document.getElementById("qSection").textContent = q.sectionTitle;
+  document.getElementById("sectionTag").textContent = q.sectionTitle;
+  document.getElementById("qText").textContent = q.q;
+  document.getElementById("progressFill").style.width = `${(current/allQuestions.length)*100}%`;
+
+  const opts = document.getElementById("qOptions");
+  opts.innerHTML = "";
+  const existing = answers[q.id];
+
+  if(q.type==="scenario"){
+    q.options.forEach(o=>{
+      const btn = document.createElement("button");
+      btn.className = "scenario-btn" + (existing===o.id ? " selected":"");
+      btn.innerHTML = `<span class="letter">${o.id}</span><span>${o.text}</span>`;
+      btn.onclick = ()=>{ answers[q.id] = o.id; renderQuestion(); };
+      opts.appendChild(btn);
+    });
+  } else {
+    const labels = SCALE_LABELS[q.type];
+    labels.forEach((label,i)=>{
+      const val = i+1;
+      const btn = document.createElement("button");
+      btn.className = "likert-btn" + (existing===val ? " selected":"");
+      btn.innerHTML = `<span class="n">${val}</span><span>${label}</span>`;
+      btn.onclick = ()=>{ answers[q.id] = val; renderQuestion(); };
+      opts.appendChild(btn);
+    });
+  }
+
+  document.getElementById("backBtn").style.visibility = current===0 ? "hidden":"visible";
+  const next = document.getElementById("nextBtn");
+  next.disabled = answers[q.id] === undefined;
+  next.textContent = current===allQuestions.length-1 ? "Continue" : "Next";
+}
+function goNext(){
+  if(answers[allQuestions[current].id] === undefined) return;
+  if(current < allQuestions.length-1){
+    current++; renderQuestion(); updateHeroProgress(current/allQuestions.length);
+  } else {
+    showScreen("leadgate");
+  }
+}
+function goBack(){ if(current>0){ current--; renderQuestion(); updateHeroProgress(current/allQuestions.length); } }
+
+/* ============================================================
+   LEAD CAPTURE
+   ============================================================ */
+function validateLead(){
+  let ok = true;
+  const name = document.getElementById("inputName").value.trim();
+  const email = document.getElementById("inputEmail").value.trim();
+  const mobile = document.getElementById("inputMobile").value.trim();
+
+  const nameField = document.getElementById("fieldName");
+  const emailField = document.getElementById("fieldEmail");
+  const mobileField = document.getElementById("fieldMobile");
+  nameField.classList.remove("error"); emailField.classList.remove("error"); mobileField.classList.remove("error");
+
+  if(name.length < 2){ nameField.classList.add("error"); ok = false; }
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if(!emailOk){ emailField.classList.add("error"); ok = false; }
+  const digits = mobile.replace(/\D/g,"");
+  if(digits.length < 7 || digits.length > 13){ mobileField.classList.add("error"); ok = false; }
+
+  if(ok){ lead = {name, email, mobile}; }
+  return ok;
+}
+
+async function submitAndGetResults(){
+  const statusEl = document.getElementById("saveStatus");
+  const btn = document.getElementById("unlockBtn");
+  const errEl = document.getElementById("leadError");
+  btn.disabled = true;
+  btn.textContent = "Scoring your results…";
+  errEl.style.display = "none";
+
+  try{
+    const res = await fetch("/api/results", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...lead, answers, website: "" })
+    });
+    const data = await res.json();
+    if(!res.ok){
+      throw new Error(data.error || "Something went wrong");
+    }
+    statusEl.textContent = "Results saved ✓";
+    showResults(data);
+  } catch(err){
+    errEl.textContent = "Couldn't load your results — please check your connection and try again.";
+    errEl.style.display = "block";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Unlock My Results";
+  }
+}
+
+document.getElementById("unlockBtn").onclick = ()=>{
+  const errEl = document.getElementById("leadError");
+  errEl.style.display = "none";
+  if(!validateLead()){
+    errEl.textContent = "Please fix the highlighted fields above.";
+    errEl.style.display = "block";
+    return;
+  }
+  submitAndGetResults();
+};
+
+/* ============================================================
+   RESULTS RENDER
+   ============================================================ */
+function showResults(data){
+  // data shape (from /api/results): { traitScores, topTrait, domains:[{key,name,match,topCareers}...all 12], topCareers:[{name,domainKey,domainName,match}...6] }
+  const scores = data.traitScores;
+  const top = data.topTrait;
+
+  document.getElementById("resultHeadline").innerHTML = `Your Compass Points <span style="color:var(--gold); font-style:italic;">${TRAIT_NAMES[top]}</span>`;
+  document.getElementById("resultNameLine").textContent = `${lead.name}'s personalised report`;
+
+  renderResultRose(scores);
+
+  const barsEl = document.getElementById("traitBars");
+  barsEl.innerHTML = "";
+  [...TRAIT_ORDER].sort((a,b)=>scores[b]-scores[a]).forEach(t=>{
+    const pct = Math.round(scores[t]*100);
+    const row = document.createElement("div");
+    row.className = "trait-row";
+    row.innerHTML = `<span class="trait-key">${TRAIT_NAMES[t]}</span><span class="trait-track"><span class="trait-fill" style="width:${pct}%"></span></span><span class="trait-pct">${pct}%</span>`;
+    barsEl.appendChild(row);
+  });
+
+  // Top domains (server already sorted all 12 by match)
+  const top3Domains = data.domains.slice(0,3);
+  const domainListEl = document.getElementById("domainList");
+  domainListEl.innerHTML = "";
+  top3Domains.forEach((d,i)=>{
+    const featured = CONFIG.featuredDomainKeys.includes(d.key);
+    const careersInDomain = d.topCareers.join(", ");
+    const card = document.createElement("div");
+    card.className = "domain-card" + (i===0?" rank1":"");
+    card.innerHTML = `
+      ${i===0 ? '<span class="rank-badge">Best Fit</span>':''}
+      <div class="domain-top">
+        <span class="domain-name">${d.name}${featured ? " 🔥":""}</span>
+        <span class="domain-match">${Math.round(d.match*100)}%</span>
+      </div>
+      <div class="domain-careers">Includes: ${careersInDomain}</div>
+      ${featured ? `<a class="mini-cta" href="${CONFIG.courses[d.key].url}" target="_blank" rel="noopener">Explore ${CONFIG.courses[d.key].name} →</a>` : ""}
+    `;
+    domainListEl.appendChild(card);
+  });
+
+  // Featured programs block (always shown)
+  const fpEl = document.getElementById("featuredPrograms");
+  fpEl.innerHTML = "";
+  CONFIG.featuredDomainKeys.forEach(key=>{
+    const c = CONFIG.courses[key];
+    const domainRank = data.domains.findIndex(d=>d.key===key);
+    const strongFit = domainRank <= 2;
+    const card = document.createElement("div");
+    card.className = "program-card";
+    card.innerHTML = `
+      <span class="p-icon">${c.icon}</span>
+      <span class="p-name">${c.name}</span>
+      <span class="p-desc">${c.desc}</span>
+      ${strongFit ? `<span class="p-badge">Great fit for you</span>` : ""}
+      <a class="p-link" href="${c.url}" target="_blank" rel="noopener">Explore Program</a>
+    `;
+    fpEl.appendChild(card);
+  });
+
+  // Top individual careers (server already computed top 6)
+  const careerListEl = document.getElementById("careerList");
+  careerListEl.innerHTML = "";
+  data.topCareers.forEach(c=>{
+    const card = document.createElement("div");
+    card.className = "career-card";
+    card.innerHTML = `
+      <div class="career-top-row">
+        <span class="career-name">${c.name}</span>
+        <span class="career-match">${Math.round(c.match*100)}%</span>
+      </div>
+      <div class="career-domain-tag">${c.domainName}</div>
+    `;
+    careerListEl.appendChild(card);
+  });
+
+  // Contact CTA
+  const contactRow = document.getElementById("contactRow");
+  contactRow.innerHTML = `
+    <a href="${CONFIG.contactWhatsapp}" target="_blank" rel="noopener">WhatsApp Us</a>
+    <a href="mailto:${CONFIG.contactEmail}">Email Us</a>
+  `;
+
+  showScreen("results");
+}
+
+/* ============================================================
+   NAV / INIT
+   ============================================================ */
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+document.getElementById("brandEyebrow").textContent = CONFIG.brandName;
+document.getElementById("topbarBrand").textContent = CONFIG.brandName;
+
+/* ============================================================
+   THEME (light/dark toggle, persisted)
+   ============================================================ */
+(function initTheme(){
+  const stored = localStorage.getItem("cc-theme");
+  const theme = stored || "light";
+  document.documentElement.setAttribute("data-theme", theme);
+})();
+document.getElementById("themeToggle").onclick = ()=>{
+  const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  const next = current === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("cc-theme", next);
+};
+
+// Domain chips on hero (display names only — scoring vectors live server-side)
+const chipRow = document.getElementById("domainChipRow");
+CONFIG.domainNames.forEach(({key,name})=>{
+  const chip = document.createElement("span");
+  chip.className = "domain-chip" + (CONFIG.featuredDomainKeys.includes(key) ? " featured":"");
+  chip.textContent = name;
+  chipRow.appendChild(chip);
+});
+
+document.getElementById("startBtn").onclick = async ()=>{
+  const btn = document.getElementById("startBtn");
+  btn.disabled = true;
+  btn.textContent = "Loading…";
+  await questionsReady; // usually already resolved by the time someone clicks
+  btn.disabled = false;
+  btn.textContent = "Begin Free Assessment";
+  if(allQuestions.length === 0) return; // fetch failed; message already shown
+  showScreen("quiz");
+  renderQuestion();
+};
+document.getElementById("nextBtn").onclick = goNext;
+document.getElementById("backBtn").onclick = goBack;
+document.getElementById("retakeBtn").onclick = ()=>{
+  current = 0;
+  Object.keys(answers).forEach(k=>delete answers[k]);
+  lead = {name:"", email:"", mobile:""};
+  document.getElementById("inputName").value = "";
+  document.getElementById("inputEmail").value = "";
+  document.getElementById("inputMobile").value = "";
+  showScreen("hero");
+  buildRoseBase(document.getElementById("roseSvg"), {withProgress:true});
+  updateHeroProgress(0);
+};
+
+buildRoseBase(document.getElementById("roseSvg"), {withProgress:true});
+updateHeroProgress(0);
+</script>
+</body>
+</html>
